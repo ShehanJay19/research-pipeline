@@ -11,12 +11,12 @@
 ---
 
 ## Phase 0 — Accounts & Environment Setup
-- ⬜ Create Groq account, generate API key
-- ⬜ Create Tavily account, generate API key
-- ⬜ Create project folder + virtual environment
-- ⬜ Install core packages (`groq`, `tavily-python`, `python-dotenv`, `pydantic`)
-- ⬜ Create `.env` with both API keys + `.gitignore`
-- ⬜ Verify: one successful test call to Groq
+- ✅ Create Groq account, generate API key
+- ✅ Create Tavily account, generate API key
+- ✅ Create project folder + virtual environment
+- ✅ Install core packages (`groq`, `tavily-python`, `python-dotenv`, `pydantic`)
+- ✅ Create `.env` with both API keys + `.gitignore`
+- ✅ Verify: one successful test call to Groq
 
 ## Phase 1 — Core LLM Wrapper
 - ⬜ Build `core/llm.py`: wraps Groq client, one function to call the model and get text back
