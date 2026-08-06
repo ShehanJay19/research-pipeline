@@ -4,6 +4,10 @@ from groq import Groq, RateLimitError
 from tenacity import retry, stop_after_attempt, wait_random_exponential, retry_if_exception_type 
 import json
 import re
+from pydantic import BaseModel,ValidationError
+from typing import Type,TypeVar
+
+T = TypeVar("T", bound=BaseModel)
 
 load_dotenv()
 client =Groq()
@@ -39,3 +43,11 @@ def call_llm(prompt: str, model: str = "llama-3.3-70b-versatile", max_tokens: in
         ]
     )
     return response.choices[0].message.content, response.usage
+
+def call_llm_structured(prompt: str, schema:Type[T],model:str="llama-3.3-70b-versatile",max_tokens:int=1000)->T:
+    """Call the LLM,parse JSON ,and validate it agiainst a Pydantic schema."""
+    data = call_llm_json(prompt, model=model, max_tokens=max_tokens)
+    try:
+        return schema.model_validate(data)
+    except ValidationError as e:
+        raise ValueError(f"Model output did not match the expected schema.\nValidation errors: {e}") from e
