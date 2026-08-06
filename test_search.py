@@ -1,4 +1,4 @@
-from core.llm import web_search
+from core.tools import web_search
 
 results = web_search("solid-state battery commercialization 2026")
 
