@@ -1,5 +1,5 @@
 from pydantic import BaseModel,Field
-from core.llm import call_llm_structured
+from core.llm import call_llm_structured_async
 from core.tools import web_search
 
 class Finding(BaseModel):
@@ -25,17 +25,25 @@ Respond with a JSON object in this exact shape:
 {{"findings": [{{"claim": "...", "source_url": "...", "confidence": "..."}}]}}
 """
 
-def search(question: str) -> SearcherOutput:
-    results=web_search(question)
-    results_block="\n\n".join(
-        f"Title: {r['title']}\nURL: {r['url']}\nContent: {r['content']}" for r in results
+async def search(question: str) -> SearcherOutput:
+    """Search the web for a sub-question and return structured, sourced findings."""
+    results = web_search(question)  # Tavily's client is sync — fine for now, thread it later if it's a bottleneck
+    results_block = "\n\n".join(
+        f"[{r['title']}]({r['url']})\n{r['content']}" for r in results
     )
     prompt = SEARCHER_PROMPT.format(question=question, results_block=results_block)
-    return call_llm_structured(prompt, schema=SearcherOutput)
+    return await call_llm_structured_async(prompt, schema=SearcherOutput)
+
+
 if __name__ == "__main__":
+    import asyncio
     import sys
-    question = sys.argv[1] if len(sys.argv) > 1 else "What is the current state of solid-state battery commercialization?"
-    result = search(question)
-    for f in result.findings:
-        print(f"[{f.confidence}] {f.claim}")
-        print(f"    source: {f.source_url}\n")
+
+    async def main():
+        question = sys.argv[1] if len(sys.argv) > 1 else "What is the current state of solid-state battery commercialization?"
+        result = await search(question)
+        for f in result.findings:
+            print(f"[{f.confidence}] {f.claim}")
+            print(f"    source: {f.source_url}\n")
+
+    asyncio.run(main())
