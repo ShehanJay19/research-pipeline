@@ -1,53 +1,95 @@
 import os
-from dotenv import load_dotenv
-from groq import Groq, RateLimitError
-from tenacity import retry, stop_after_attempt, wait_random_exponential, retry_if_exception_type 
 import json
 import re
-from pydantic import BaseModel,ValidationError
-from typing import Type,TypeVar
+from typing import Type, TypeVar
+
+from dotenv import load_dotenv
+from groq import Groq, AsyncGroq, RateLimitError
+from pydantic import BaseModel, ValidationError
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+
+load_dotenv()
+
+client = Groq()
+async_client = AsyncGroq()
 
 T = TypeVar("T", bound=BaseModel)
 
-load_dotenv()
-client =Groq()
-def call_llm_json(prompt: str, model: str = "llama-3.3-70b-versatile", max_tokens: int = 1000) -> dict:
-    """Send a prompt and parse the reponse as JSON,stripping markdown fences if presented."""
-    system_instruction= "Respond with ONLY valid JSON. No markdwon code fences,no preamble,no explanation - jsut the raw JSON object."
-    full_prompt=f"{system_instruction}\n\n{prompt}"
-    
-    raw, _usage=call_llm(full_prompt,model=model,max_tokens=max_tokens)
-    
-    cleaned=raw.strip()
-    cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
-    cleaned = re.sub(r"\s*```$", "", cleaned)
-    
-    try: 
-        return json.loads(cleaned)
-    except json.JSONDecodeError as e:
-        raise ValueError(f"Model did not return valid JSON.\nRaw output: {raw}") from e
-    
-@retry(
-    stop=stop_after_attempt(5),
-    wait=wait_random_exponential(multiplier=1, min=1, max=10),
-    retry=retry_if_exception_type(RateLimitError)
+JSON_INSTRUCTION = (
+    "Respond with ONLY valid JSON. No markdown code fences, "
+    "no preamble, no explanation — just the raw JSON object."
 )
 
-def call_llm(prompt: str, model: str = "llama-3.3-70b-versatile", max_tokens: int = 1000) ->str:
-    """Send a prompt to the LLM and return the response."""
+
+# ---------- Sync ----------
+
+@retry(
+    retry=retry_if_exception_type(RateLimitError),
+    wait=wait_exponential(multiplier=1, min=2, max=60),
+    stop=stop_after_attempt(5)
+)
+def call_llm(prompt: str, model: str = "llama-3.3-70b-versatile", max_tokens: int = 1000) -> str:
+    """Send a prompt to the LLM and return the text response. Retries on rate limits."""
     response = client.chat.completions.create(
         model=model,
         max_tokens=max_tokens,
-        messages=[
-            {"role": "user", "content": prompt}
-        ]
+        messages=[{"role": "user", "content": prompt}]
     )
-    return response.choices[0].message.content, response.usage
+    return response.choices[0].message.content
 
-def call_llm_structured(prompt: str, schema:Type[T],model:str="llama-3.3-70b-versatile",max_tokens:int=1000)->T:
-    """Call the LLM,parse JSON ,and validate it agiainst a Pydantic schema."""
+
+def call_llm_json(prompt: str, model: str = "llama-3.3-70b-versatile", max_tokens: int = 1000) -> dict:
+    """Call the LLM and parse the response as JSON, stripping markdown fences if present."""
+    raw = call_llm(f"{JSON_INSTRUCTION}\n\n{prompt}", model=model, max_tokens=max_tokens)
+    cleaned = re.sub(r"^```(?:json)?\s*", "", raw.strip())
+    cleaned = re.sub(r"\s*```$", "", cleaned)
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Model did not return valid JSON.\nRaw output: {raw}") from e
+
+
+def call_llm_structured(prompt: str, schema: Type[T], model: str = "llama-3.3-70b-versatile", max_tokens: int = 1000) -> T:
+    """Call the LLM, parse JSON, and validate it against a Pydantic schema."""
     data = call_llm_json(prompt, model=model, max_tokens=max_tokens)
     try:
         return schema.model_validate(data)
     except ValidationError as e:
-        raise ValueError(f"Model output did not match the expected schema.\nValidation errors: {e}") from e
+        raise ValueError(f"Model output didn't match expected schema.\nRaw data: {data}\nErrors: {e}") from e
+
+
+# ---------- Async ----------
+
+@retry(
+    retry=retry_if_exception_type(RateLimitError),
+    wait=wait_exponential(multiplier=1, min=2, max=60),
+    stop=stop_after_attempt(5)
+)
+async def call_llm_async(prompt: str, model: str = "llama-3.3-70b-versatile", max_tokens: int = 1000) -> str:
+    """Async version of call_llm — used by agents that run concurrently."""
+    response = await async_client.chat.completions.create(
+        model=model,
+        max_tokens=max_tokens,
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return response.choices[0].message.content
+
+
+async def call_llm_json_async(prompt: str, model: str = "llama-3.3-70b-versatile", max_tokens: int = 1000) -> dict:
+    """Async version of call_llm_json."""
+    raw = await call_llm_async(f"{JSON_INSTRUCTION}\n\n{prompt}", model=model, max_tokens=max_tokens)
+    cleaned = re.sub(r"^```(?:json)?\s*", "", raw.strip())
+    cleaned = re.sub(r"\s*```$", "", cleaned)
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Model did not return valid JSON.\nRaw output: {raw}") from e
+
+
+async def call_llm_structured_async(prompt: str, schema: Type[T], model: str = "llama-3.3-70b-versatile", max_tokens: int = 1000) -> T:
+    """Async version of call_llm_structured."""
+    data = await call_llm_json_async(prompt, model=model, max_tokens=max_tokens)
+    try:
+        return schema.model_validate(data)
+    except ValidationError as e:
+        raise ValueError(f"Model output didn't match expected schema.\nRaw data: {data}\nErrors: {e}") from e
