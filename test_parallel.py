@@ -1,7 +1,14 @@
 import asyncio
+from asyncio import tasks
 import time
 from agents.planner import plan
 from agents.searcher import search
+
+SEARCH_LIMIT = asyncio.Semaphore(3)  # at most 3 searches running at once
+
+async def search_with_limit(question: str):
+    async with SEARCH_LIMIT:
+        return await search(question)
 
 async def search_sequential(sub_questions: list[str]):
     """One searcher at a time -the 'before' version"""
@@ -15,7 +22,7 @@ async def search_sequential(sub_questions: list[str]):
 
 async def search_parallel(sub_questions:list[str]):
     """All searchers at onece - the 'after'version """
-    tasks=[search(q) for q in sub_questions]
+    tasks = [search_with_limit(q) for q in sub_questions]
     results=await asyncio.gather(*tasks)
     return results
     
