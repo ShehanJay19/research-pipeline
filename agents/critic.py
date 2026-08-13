@@ -1,14 +1,14 @@
 from pydantic import BaseModel
 from core.llm import call_llm_structured 
-from agents.searcher import Findings
+from agents.searcher import Finding
 
 class Contradiction(BaseModel):
     topic:str
-    conficting_class: list[str]
+    conflicting_claims: list[str]
     
     
-class Criticoutput(BaseModel):
-    verified:list[Findings] 
+class CriticOutput(BaseModel):
+    verified:list[Finding] 
     contradictions:list[Contradiction]
     gaps: list[str]   
     
