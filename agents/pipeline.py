@@ -5,7 +5,7 @@ from agents.critic import critique,CriticOutput
 
 MAX_ITERATIONS = 2
 
-async def gathe_findings(questions:list[str])->list[Finding]:
+async def gather_findings(questions:list[str])->list[Finding]:
     """Run searcher concurrently for all questions ,return combined findings
     """
     tasks = [search(q) for q in questions]
