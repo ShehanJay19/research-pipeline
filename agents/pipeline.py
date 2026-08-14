@@ -2,7 +2,7 @@ import asyncio
 from agents.planner import plan
 from agents.searcher import search,Finding
 from agents.critic import critique,CriticOutput
-
+from agents.writer import write_report
 MAX_ITERATIONS = 2
 
 async def gather_findings(questions:list[str])->list[Finding]:
@@ -45,3 +45,23 @@ async def research_with_critic_loop(question: str) -> CriticOutput:
         iteration += 1
 
     return critic_output    
+async def run_pipeline(question: str) -> str:
+    """Full pipeline: plan -> parallel search -> critic loop -> write report."""
+    critic_output = await research_with_critic_loop(question)
+    report = write_report(
+        question=question,
+        verified_findings=critic_output.verified,
+        unresolved_gaps=critic_output.gaps
+    )
+    return report
+
+async def run_pipeline(question: str) -> str:
+    """Full pipeline: plan -> parallel search -> critic loop -> write report."""
+    critic_output = await research_with_critic_loop(question)
+    report = write_report(
+        question=question,
+        verified_findings=critic_output.verified,
+        unresolved_gaps=critic_output.gaps
+    )
+    return report
+
