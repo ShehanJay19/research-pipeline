@@ -17,5 +17,14 @@ async def gathe_findings(questions:list[str])->list[Finding]:
     return all_findings
 
 
+def build_followup_queries(critic_output:CriticOutput)->list[str]:
+   """Turn gaps and contradictions into new searcher queries
+   """
+   queries =[]
+   for c in critic_output.contradictions:
+        queries.append(f"{c.topic}: find an authoritative source to resolve conflicting claims: {', '.join(c.conflicting_claims)}")
+        
+   return queries
 
-    
+
+     
