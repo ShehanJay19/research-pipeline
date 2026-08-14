@@ -21,3 +21,20 @@ Write the report in markdown. Structure:
 Be honest about uncertainty — if findings disagree or coverage is thin, say so rather than
 overstating confidence.
 """
+def write_report(question: str, verified_findings: list[Finding], unresolved_gaps: list[str] | None = None) -> str:
+    numbered_findings = "\n".join(
+        f"[{i}] {f.claim} (source: {f.source_url})"
+        for i, f in enumerate(verified_findings, 1)
+    )
+
+    gaps_section = ""
+    if unresolved_gaps:
+        gaps_list = "\n".join(f"- {g}" for g in unresolved_gaps)
+        gaps_section = f"Note: these areas remain uncertain or under-covered — mention this limitation in the report where relevant:\n{gaps_list}"
+
+    prompt = WRITER_PROMPT.format(
+        question=question,
+        numbered_findings=numbered_findings,
+        gaps_section=gaps_section
+    )
+    return call_llm(prompt, max_tokens=2000)
