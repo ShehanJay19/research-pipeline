@@ -27,4 +27,21 @@ def build_followup_queries(critic_output:CriticOutput)->list[str]:
    return queries
 
 
-     
+async def research_with_critic_loop(question: str) -> CriticOutput:
+    plan_result = plan(question)
+    all_findings = await gather_findings(plan_result.sub_questions)
+    critic_output = critique(all_findings)
+
+    iteration = 1
+    while (critic_output.gaps or critic_output.contradictions) and iteration < MAX_ITERATIONS:
+        followup_queries = build_followup_queries(critic_output)
+        print(f"\n--- Re-search iteration {iteration}: {len(followup_queries)} follow-up quer{'y' if len(followup_queries)==1 else 'ies'} ---")
+        for q in followup_queries:
+            print(f"  - {q}")
+
+        new_findings = await gather_findings(followup_queries)
+        all_findings.extend(new_findings)
+        critic_output = critique(all_findings)
+        iteration += 1
+
+    return critic_output    
