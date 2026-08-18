@@ -2,6 +2,8 @@ import os
 import json
 import re
 from typing import Type, TypeVar
+from core.budget import budget
+
 
 from dotenv import load_dotenv
 from groq import Groq, AsyncGroq, RateLimitError
@@ -35,6 +37,8 @@ def call_llm(prompt: str, model: str = "llama-3.3-70b-versatile", max_tokens: in
         max_tokens=max_tokens,
         messages=[{"role": "user", "content": prompt}]
     )
+    budget.record_llm_call(response.usage.prompt_tokens, response.usage.completion_tokens)
+
     return response.choices[0].message.content
 
 
