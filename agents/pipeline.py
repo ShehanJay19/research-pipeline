@@ -3,6 +3,7 @@ from agents.planner import plan
 from agents.searcher import search,Finding
 from agents.critic import critique,CriticOutput
 from agents.writer import write_report
+from core.budget import budget, BudgetExceeded
 MAX_ITERATIONS = 2
 
 async def gather_findings(questions:list[str])->list[Finding]:
@@ -65,3 +66,24 @@ async def run_pipeline(question: str) -> str:
     )
     return report
 
+async def research_with_critic_loop(question: str) -> CriticOutput:
+    plan_result = plan(question)
+    all_findings = await gather_findings(plan_result.sub_questions)
+    critic_output = critique(all_findings)
+
+    iteration = 1
+    while (critic_output.gaps or critic_output.contradictions) and iteration < MAX_ITERATIONS:
+        followup_queries = build_followup_queries(critic_output)
+        print(f"\n--- Re-search iteration {iteration}: {len(followup_queries)} follow-up quer{'y' if len(followup_queries)==1 else 'ies'} ---")
+
+        try:
+            new_findings = await gather_findings(followup_queries)
+        except BudgetExceeded as e:
+            print(f"\n[budget] Skipping re-search — {e}. Returning best-effort results instead.")
+            break
+
+        all_findings.extend(new_findings)
+        critic_output = critique(all_findings)
+        iteration += 1
+
+    return critic_output
