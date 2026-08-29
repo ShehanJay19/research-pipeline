@@ -33,6 +33,13 @@ class Budget:
             f"Elapsed: {elapsed:.1f}s"
         )
 
+    def check_llm_budget(self):
+        if self.llm_calls >= self.max_llm_calls:
+            raise BudgetExceeded(f"LLM call budget exceeded: {self.llm_calls}/{self.max_llm_calls}")
+
+    def check_search_budget(self):
+        if self.search_calls >= self.max_search_calls:
+            raise BudgetExceeded(f"Search call budget exceeded: {self.search_calls}/{self.max_search_calls}")
 
 # One shared instance for the whole run
 budget = Budget()

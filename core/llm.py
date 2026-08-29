@@ -32,6 +32,7 @@ JSON_INSTRUCTION = (
 )
 def call_llm(prompt: str, model: str = "llama-3.3-70b-versatile", max_tokens: int = 1000) -> str:
     """Send a prompt to the LLM and return the text response. Retries on rate limits."""
+    budget.check_llm_budget()
     response = client.chat.completions.create(
         model=model,
         max_tokens=max_tokens,
